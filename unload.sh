@@ -2,7 +2,7 @@ if [ -z "${DOCKER_ROOTLESS}" ]; then
 	SUDO="sudo"
 fi
 
-if [ -f ${DOCKER_PID_FILE} ]; then
+if [ -f "${DOCKER_PID_FILE}" ]; then
 	pid=$(cat ${DOCKER_PID_FILE})
 	ps -p ${pid} > /dev/null 2>&1
 	if [ $? -eq 0 ]; then
