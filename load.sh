@@ -44,19 +44,20 @@ if [ ! -z "${DOCKER_ROOTLESS}" ]; then
 else
 	DOCKERD_CMD="sudo dockerd"
 fi
-XDG_RUNTIME_DIR=${DOCKER_EXEC_ROOT} \
-XDG_CONFIG_HOME=${DOCKER_CONFIG_DIR} \
-${DOCKERD_CMD} \
-	--pidfile ${DOCKER_PID_FILE} \
-	--exec-root ${DOCKER_EXEC_ROOT} \
-	--data-root ${DOCKER_DATA_ROOT} \
-	--config-file ${DOCKER_CONFIG_FILE} \
-	--userland-proxy-path $(which rootlesskit-docker-proxy) \
-	--tlscacert ${DOCKER_TLS_CA_FILE} \
-	--tlscert ${DOCKER_TLS_CERT_FILE} \
-	--tlskey ${DOCKER_TLS_KEY_FILE} \
-	--host ${DOCKER_HOST} \
-	> ${DOCKER_LOGS_FILE} 2>&1 &
+(
+	XDG_RUNTIME_DIR=${DOCKER_EXEC_ROOT} \
+	XDG_CONFIG_HOME=${DOCKER_CONFIG_DIR} \
+	eval ${DOCKERD_CMD} \
+		--pidfile ${DOCKER_PID_FILE} \
+		--exec-root ${DOCKER_EXEC_ROOT} \
+		--data-root ${DOCKER_DATA_ROOT} \
+		--config-file ${DOCKER_CONFIG_FILE} \
+		--userland-proxy-path $(which rootlesskit-docker-proxy) \
+		--tlscacert ${DOCKER_TLS_CA_FILE} \
+		--tlscert ${DOCKER_TLS_CERT_FILE} \
+		--tlskey ${DOCKER_TLS_KEY_FILE} \
+		--host ${DOCKER_HOST} \
+&) > ${DOCKER_LOGS_FILE} 2>&1
 
 inotifywait -q -q -e close_write -t 5 --include $(basename ${DOCKER_PID_FILE}) ${DOCKER_EXEC_ROOT}
 if [ $? -eq 2 ]; then
