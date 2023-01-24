@@ -10,6 +10,7 @@ export DOCKER_SOCK_FILE=${DOCKER_EXEC_ROOT}/docker.sock
 export DOCKER_LOGS_FILE=${BB_TARGET_BUILD_DIR}/var/log/docker.log
 export DOCKER_LOGS_DIR=$(dirname ${DOCKER_LOGS_FILE})
 export DOCKER_HOST=unix://${DOCKER_SOCK_FILE}
+export BUILDX_CONFIG=${BB_TARGET_BUILD_DIR}/etc/docker/buildx
 
 which dockerd-rootless.sh > /dev/null 2>&1
 if [ $? -eq 0 ]; then
