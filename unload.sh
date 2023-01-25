@@ -17,6 +17,15 @@ if [ -f "${DOCKER_PID_FILE}" ]; then
 				return 1
 			fi
 		fi
+
+		retries=0
+		while [ -f "${DOCKER_PID_FILE}" ]; do
+			inotifywait -q -q -e delete_self -t 1 ${DOCKER_PID_FILE}
+			((retries=retries+1))
+			if [ $retries -eq 5 ]; then
+				echo "Docker daemon is terminating for target ${BB_TARGET}, please wait..."
+			fi
+		done
 	else
 		${SUDO} rm ${DOCKER_PID_FILE}
 	fi

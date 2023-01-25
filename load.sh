@@ -62,12 +62,11 @@ export XDG_CONFIG_HOME=${DOCKER_CONFIG_DIR}
 unset XDG_RUNTIME_DIR
 unset XDG_CONFIG_HOME
 
-inotifywait -q -q -e close_write -t 5 --include $(basename ${DOCKER_PID_FILE}) ${DOCKER_EXEC_ROOT}
-if [ $? -eq 2 ]; then
-	echo "Docker daemon is starting for target ${BB_TARGET}, please wait..."
-	inotifywait -q -q -e close_write -t 25 --include $(basename ${DOCKER_PID_FILE}) ${DOCKER_EXEC_ROOT}
-	if [ $? -ne 0 ]; then
-		echo "Unable to start Docker daemon"
-		return 1
+retries=0
+while [ ! -f "${DOCKER_PID_FILE}" ]; do
+	inotifywait -q -q -e close_write -t 1 --include $(basename ${DOCKER_PID_FILE}) ${DOCKER_EXEC_ROOT}
+	((retries=retries+1))
+	if [ $retries -eq 5 ]; then
+		echo "Docker daemon is starting for target ${BB_TARGET}, please wait..."
 	fi
-fi
+done
