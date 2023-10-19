@@ -1,4 +1,4 @@
-if [ -z "${DOCKER_ROOTLESS}" ]; then
+if [ -z "${BB_TARGET_VAR_DOCKER_ROOTLESS}" ] || [[ "${BB_TARGET_VAR_DOCKER_ROOTLESS}" != "1" ]]; then
 	SUDO="sudo"
 fi
 
@@ -38,7 +38,7 @@ fi
 if [ -d "${DOCKER_DATA_ROOT}" ]; then
 	${SUDO} chmod -R u+rwX "${DOCKER_DATA_ROOT}" > /dev/null 2>&1
 fi
-if [ -z "${DOCKER_ROOTLESS}" ]; then
+if [ -z "${BB_TARGET_VAR_DOCKER_ROOTLESS}" ] || [[ "${BB_TARGET_VAR_DOCKER_ROOTLESS}" != "1" ]]; then
 	if [ -d "${DOCKER_CONFIG_DIR}" ]; then
 		sudo chown -R buildbox:buildbox "${DOCKER_CONFIG_DIR}"
 	fi
@@ -63,5 +63,4 @@ unset DOCKER_SOCK_FILE
 unset DOCKER_LOGS_FILE
 unset DOCKER_LOGS_DIR
 unset DOCKER_HOST
-unset DOCKER_ROOTLESS
 unset BUILDX_CONFIG

@@ -12,10 +12,7 @@ export DOCKER_LOGS_DIR=$(dirname ${DOCKER_LOGS_FILE})
 export DOCKER_HOST=unix://${DOCKER_SOCK_FILE}
 export BUILDX_CONFIG=${BB_TARGET_BUILD_DIR}/etc/docker/buildx
 
-which dockerd-rootless.sh > /dev/null 2>&1
-if [ $? -eq 0 ]; then
-	export DOCKER_ROOTLESS=1
-else
+if [ -z "${BB_TARGET_VAR_DOCKER_ROOTLESS}" ] || [[ "${BB_TARGET_VAR_DOCKER_ROOTLESS}" != "1" ]]; then
 	SUDO="sudo"
 fi
 
@@ -40,7 +37,7 @@ if [ ! -f ${DOCKER_CONFIG_FILE} ]; then
 	echo "{}" > ${DOCKER_CONFIG_FILE}
 fi
 
-if [ ! -z "${DOCKER_ROOTLESS}" ]; then
+if [ ! -z "${BB_TARGET_VAR_DOCKER_ROOTLESS}" ] && [[ "${BB_TARGET_VAR_DOCKER_ROOTLESS}" == "1" ]]; then
 	DOCKERD_CMD="dockerd-rootless.sh"
 else
 	DOCKERD_CMD="sudo dockerd"
