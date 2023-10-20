@@ -13,7 +13,10 @@ export DOCKER_HOST=unix://${DOCKER_SOCK_FILE}
 export BUILDX_CONFIG=${BB_TARGET_BUILD_DIR}/etc/docker/buildx
 
 if [ -z "${BB_TARGET_VAR_DOCKER_ROOTLESS}" ] || [[ "${BB_TARGET_VAR_DOCKER_ROOTLESS}" != "1" ]]; then
+	export DOCKER_ROOTLESS=0
 	SUDO="sudo"
+else
+	export DOCKER_ROOTLESS=1
 fi
 
 if [ -f ${DOCKER_PID_FILE} ]; then
@@ -37,7 +40,7 @@ if [ ! -f ${DOCKER_CONFIG_FILE} ]; then
 	echo "{}" > ${DOCKER_CONFIG_FILE}
 fi
 
-if [ ! -z "${BB_TARGET_VAR_DOCKER_ROOTLESS}" ] && [[ "${BB_TARGET_VAR_DOCKER_ROOTLESS}" == "1" ]]; then
+if [ ${DOCKER_ROOTLESS} -eq 1 ]; then
 	DOCKERD_CMD="dockerd-rootless.sh"
 	DOCKER_PROXY="rootlesskit-docker-proxy"
 else

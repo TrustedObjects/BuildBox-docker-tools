@@ -1,4 +1,4 @@
-if [ -z "${BB_TARGET_VAR_DOCKER_ROOTLESS}" ] || [[ "${BB_TARGET_VAR_DOCKER_ROOTLESS}" != "1" ]]; then
+if [ ${DOCKER_ROOTLESS} -eq 0 ]; then
 	SUDO="sudo"
 fi
 
@@ -33,7 +33,7 @@ if [ -f "${DOCKER_PID_FILE}" ]; then
 fi
 
 # Umount Docker data root if needed
-if [ -z "${BB_TARGET_VAR_DOCKER_ROOTLESS}" ] || [[ "${BB_TARGET_VAR_DOCKER_ROOTLESS}" != "1" ]]; then
+if [ ${DOCKER_ROOTLESS} -eq 0 ]; then
 	if [ -d "${DOCKER_DATA_ROOT}" ]; then
 		mountpoint -q "${DOCKER_DATA_ROOT}"
 		if [ $? -eq 0 ]; then
@@ -72,3 +72,4 @@ unset DOCKER_LOGS_FILE
 unset DOCKER_LOGS_DIR
 unset DOCKER_HOST
 unset BUILDX_CONFIG
+unset DOCKER_ROOTLESS
