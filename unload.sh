@@ -44,16 +44,16 @@ fi
 
 # Give permissions for buildbox user to manage all Docker created files
 if [ -d "${DOCKER_EXEC_ROOT}" ]; then
-	sudo setfacl -R -m u:buildbox:rwx ${DOCKER_EXEC_ROOT}
+	sudo setfacl -R -m u:buildbox:rwX ${DOCKER_EXEC_ROOT}
 fi
 if [ -d "${DOCKER_DATA_ROOT}" ]; then
-	sudo setfacl -R -m u:buildbox:rwx ${DOCKER_DATA_ROOT}
+	sudo setfacl -R -m u:buildbox:rwX ${DOCKER_DATA_ROOT}
 fi
 if [ -d "${DOCKER_CONFIG_DIR}" ]; then
-	sudo setfacl -R -m u:buildbox:rwx ${DOCKER_CONFIG_DIR}
+	sudo setfacl -R -m u:buildbox:rwX ${DOCKER_CONFIG_DIR}
 fi
 if [ -d "${DOCKER_LOGS_DIR}" ]; then
-	sudo setfacl -R -m u:buildbox:rwx ${DOCKER_LOGS_DIR}
+	sudo setfacl -R -m u:buildbox:rwX ${DOCKER_LOGS_DIR}
 fi
 
 # Cleanup
