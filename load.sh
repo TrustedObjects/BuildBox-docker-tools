@@ -39,8 +39,10 @@ fi
 
 if [ ! -z "${BB_TARGET_VAR_DOCKER_ROOTLESS}" ] && [[ "${BB_TARGET_VAR_DOCKER_ROOTLESS}" == "1" ]]; then
 	DOCKERD_CMD="dockerd-rootless.sh"
+	DOCKER_PROXY="rootlesskit-docker-proxy"
 else
 	DOCKERD_CMD="sudo dockerd"
+	DOCKER_PROXY="docker-proxy"
 fi
 export XDG_RUNTIME_DIR=${DOCKER_EXEC_ROOT}
 export XDG_CONFIG_HOME=${DOCKER_CONFIG_DIR}
@@ -50,7 +52,7 @@ export XDG_CONFIG_HOME=${DOCKER_CONFIG_DIR}
 		--exec-root ${DOCKER_EXEC_ROOT} \
 		--data-root ${DOCKER_DATA_ROOT} \
 		--config-file ${DOCKER_CONFIG_FILE} \
-		--userland-proxy-path $(which rootlesskit-docker-proxy) \
+		--userland-proxy-path $(which ${DOCKER_PROXY}) \
 		--tlscacert ${DOCKER_TLS_CA_FILE} \
 		--tlscert ${DOCKER_TLS_CERT_FILE} \
 		--tlskey ${DOCKER_TLS_KEY_FILE} \
