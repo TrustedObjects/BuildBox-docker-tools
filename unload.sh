@@ -48,6 +48,7 @@ if [ -d "${DOCKER_EXEC_ROOT}" ]; then
 fi
 if [ -d "${DOCKER_DATA_ROOT}" ]; then
 	sudo setfacl -R -m u:buildbox:rwX ${DOCKER_DATA_ROOT}
+	sudo chmod -R o-t ${DOCKER_DATA_ROOT}
 fi
 if [ -d "${DOCKER_CONFIG_DIR}" ]; then
 	sudo setfacl -R -m u:buildbox:rwX ${DOCKER_CONFIG_DIR}
