@@ -1,16 +1,19 @@
+# Config paths
 export DOCKER_CONFIG_FILE=${BB_TARGET_BUILD_DIR}/etc/docker/daemon.json
 export DOCKER_CONFIG_DIR=${BB_TARGET_BUILD_DIR}/etc
 export DOCKER_TLS_CA_FILE=${BB_TARGET_BUILD_DIR}/etc/docker/ca.pem
 export DOCKER_TLS_CERT_FILE=${BB_TARGET_BUILD_DIR}/etc/docker/cert.pem
 export DOCKER_TLS_KEY_FILE=${BB_TARGET_BUILD_DIR}/etc/docker/key.pem
 export DOCKER_DATA_ROOT=${BB_TARGET_BUILD_DIR}/var/lib/docker
-export DOCKER_EXEC_ROOT=${BB_TARGET_BUILD_DIR}/var/run/docker
-export DOCKER_PID_FILE=${DOCKER_EXEC_ROOT}/docker.pid
-export DOCKER_SOCK_FILE=${DOCKER_EXEC_ROOT}/docker.sock
 export DOCKER_LOGS_FILE=${BB_TARGET_BUILD_DIR}/var/log/docker.log
 export DOCKER_LOGS_DIR=$(dirname ${DOCKER_LOGS_FILE})
-export DOCKER_HOST=unix://${DOCKER_SOCK_FILE}
 export BUILDX_CONFIG=${BB_TARGET_BUILD_DIR}/etc/docker/buildx
+
+# Runtime paths
+export DOCKER_EXEC_ROOT=${TMPDIR}/docker
+export DOCKER_PID_FILE=${DOCKER_EXEC_ROOT}/docker.pid
+export DOCKER_SOCK_FILE=${DOCKER_EXEC_ROOT}/docker.sock
+export DOCKER_HOST=unix://${DOCKER_SOCK_FILE}
 
 if [ -z "${BB_TARGET_VAR_DOCKER_ROOTLESS}" ] || [[ "${BB_TARGET_VAR_DOCKER_ROOTLESS}" != "1" ]]; then
 	export DOCKER_ROOTLESS=0
