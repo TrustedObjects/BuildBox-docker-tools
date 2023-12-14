@@ -1,25 +1,37 @@
-# Config paths
-export DOCKER_CONFIG_FILE=${BB_TARGET_BUILD_DIR}/etc/docker/daemon.json
-export DOCKER_CONFIG_DIR=${BB_TARGET_BUILD_DIR}/etc
-export DOCKER_TLS_CA_FILE=${BB_TARGET_BUILD_DIR}/etc/docker/ca.pem
-export DOCKER_TLS_CERT_FILE=${BB_TARGET_BUILD_DIR}/etc/docker/cert.pem
-export DOCKER_TLS_KEY_FILE=${BB_TARGET_BUILD_DIR}/etc/docker/key.pem
-export DOCKER_DATA_ROOT=${BB_TARGET_BUILD_DIR}/var/lib/docker
-export DOCKER_LOGS_FILE=${BB_TARGET_BUILD_DIR}/var/log/docker.log
-export DOCKER_LOGS_DIR=$(dirname ${DOCKER_LOGS_FILE})
-export BUILDX_CONFIG=${BB_TARGET_BUILD_DIR}/etc/docker/buildx
-
-# Runtime paths
-export DOCKER_EXEC_ROOT=${TMPDIR}/docker
-export DOCKER_PID_FILE=${DOCKER_EXEC_ROOT}/docker.pid
-export DOCKER_SOCK_FILE=${DOCKER_EXEC_ROOT}/docker.sock
-export DOCKER_HOST=unix://${DOCKER_SOCK_FILE}
-
-if [ -z "${BB_TARGET_VAR_DOCKER_ROOTLESS}" ] || [[ "${BB_TARGET_VAR_DOCKER_ROOTLESS}" != "1" ]]; then
-	export DOCKER_ROOTLESS=0
-	SUDO="sudo"
+# Environment definition
+DOCKER_ENV_FILE=${TMPDIR}/docker.env
+DOCKER_ENV=""
+function add_env {
+	export ${1}
+	DOCKER_ENV+="export ${1}"
+	DOCKER_ENV+=$'\n'
+}
+if [ -f ${DOCKER_ENV_FILE} ]; then
+	source ${DOCKER_ENV_FILE}
 else
-	export DOCKER_ROOTLESS=1
+	# Config paths
+	add_env DOCKER_CONFIG_FILE=${BB_TARGET_BUILD_DIR}/etc/docker/daemon.json
+	add_env DOCKER_CONFIG_DIR=${BB_TARGET_BUILD_DIR}/etc
+	add_env DOCKER_TLS_CA_FILE=${BB_TARGET_BUILD_DIR}/etc/docker/ca.pem
+	add_env DOCKER_TLS_CERT_FILE=${BB_TARGET_BUILD_DIR}/etc/docker/cert.pem
+	add_env DOCKER_TLS_KEY_FILE=${BB_TARGET_BUILD_DIR}/etc/docker/key.pem
+	add_env DOCKER_DATA_ROOT=${BB_TARGET_BUILD_DIR}/var/lib/docker
+	add_env DOCKER_LOGS_FILE=${BB_TARGET_BUILD_DIR}/var/log/docker.log
+	add_env DOCKER_LOGS_DIR=$(dirname ${DOCKER_LOGS_FILE})
+	add_env BUILDX_CONFIG=${BB_TARGET_BUILD_DIR}/etc/docker/buildx
+
+	# Runtime paths
+	add_env DOCKER_EXEC_ROOT=${TMPDIR}/docker
+	add_env DOCKER_PID_FILE=${DOCKER_EXEC_ROOT}/docker.pid
+	add_env DOCKER_SOCK_FILE=${DOCKER_EXEC_ROOT}/docker.sock
+	add_env DOCKER_HOST=unix://${DOCKER_SOCK_FILE}
+
+	if [ -z "${BB_TARGET_VAR_DOCKER_ROOTLESS}" ] || [[ "${BB_TARGET_VAR_DOCKER_ROOTLESS}" != "1" ]]; then
+		add_env DOCKER_ROOTLESS=0
+		SUDO="sudo"
+	else
+		add_env DOCKER_ROOTLESS=1
+	fi
 fi
 
 if [ -f ${DOCKER_PID_FILE} ]; then
@@ -29,6 +41,9 @@ if [ -f ${DOCKER_PID_FILE} ]; then
 		return 0
 	fi
 fi
+
+# If Docker daemon is already running, stop here
+echo "${DOCKER_ENV}" > ${DOCKER_ENV_FILE}
 
 if [ -d "${DOCKER_EXEC_ROOT}" ]; then
 	${SUDO} chmod -R u+rwX "${DOCKER_EXEC_ROOT}"
@@ -43,6 +58,7 @@ if [ ! -f ${DOCKER_CONFIG_FILE} ]; then
 	echo "{}" > ${DOCKER_CONFIG_FILE}
 fi
 
+# Start Docker daemon
 if [ ${DOCKER_ROOTLESS} -eq 1 ]; then
 	DOCKERD_CMD="dockerd-rootless.sh"
 	DOCKER_PROXY="rootlesskit-docker-proxy"

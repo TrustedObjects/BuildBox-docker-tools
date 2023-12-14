@@ -1,3 +1,11 @@
+# Load environment
+DOCKER_ENV_FILE=${TMPDIR}/docker.env
+if [ -f ${DOCKER_ENV_FILE} ]; then
+	source ${DOCKER_ENV_FILE}
+else
+	# No environment file: nothing to do
+	exit 0
+fi
 if [ ${DOCKER_ROOTLESS} -eq 0 ]; then
 	SUDO="sudo"
 fi
@@ -63,14 +71,8 @@ if [ -d "${DOCKER_EXEC_ROOT}" ]; then
 fi
 
 # Reset environment
-unset DOCKER_CONFIG_FILE
-unset DOCKER_CONFIG_DIR
-unset DOCKER_DATA_ROOT
-unset DOCKER_EXEC_ROOT
-unset DOCKER_PID_FILE
-unset DOCKER_SOCK_FILE
-unset DOCKER_LOGS_FILE
-unset DOCKER_LOGS_DIR
-unset DOCKER_HOST
-unset BUILDX_CONFIG
-unset DOCKER_ROOTLESS
+sed -i 's/export/unset/g' ${DOCKER_ENV_FILE}
+sed -i 's/=.*//' ${DOCKER_ENV_FILE}
+source ${DOCKER_ENV_FILE}
+rm ${DOCKER_ENV_FILE}
+
