@@ -4,7 +4,7 @@ if [ -f ${DOCKER_ENV_FILE} ]; then
 	source ${DOCKER_ENV_FILE}
 else
 	# No environment file: nothing to do
-	exit 0
+	return
 fi
 if [ ${DOCKER_ROOTLESS} -eq 0 ]; then
 	SUDO="sudo"
