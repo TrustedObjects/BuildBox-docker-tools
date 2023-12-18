@@ -1,14 +1,38 @@
 # Environment definition
 DOCKER_ENV_FILE=${TMPDIR}/docker.env
-DOCKER_ENV=""
-function add_env {
-	export ${1}
-	DOCKER_ENV+="export ${1}"
-	DOCKER_ENV+=$'\n'
-}
+# try to load environment from file
 if [ -f ${DOCKER_ENV_FILE} ]; then
 	source ${DOCKER_ENV_FILE}
+	if [ -z "${DOCKER_CONFIG_FILE}" ] ||
+		[ -z "${DOCKER_CONFIG_DIR}" ] ||
+		[ -z "${DOCKER_TLS_CA_FILE}" ] ||
+		[ -z "${DOCKER_TLS_CERT_FILE}" ] ||
+		[ -z "${DOCKER_TLS_KEY_FILE}" ] ||
+		[ -z "${DOCKER_DATA_ROOT}" ] ||
+		[ -z "${DOCKER_LOGS_FILE}" ] ||
+		[ -z "${DOCKER_LOGS_DIR}" ] ||
+		[ -z "${BUILDX_CONFIG}" ] ||
+		[ -z "${DOCKER_EXEC_ROOT}" ] ||
+		[ -z "${DOCKER_PID_FILE}" ] ||
+		[ -z "${DOCKER_SOCK_FILE}" ] ||
+		[ -z "${DOCKER_HOST}" ] ||
+		[ -z "${DOCKER_ROOTLESS}" ]; then
+		GENERATE_ENV=1
+	else
+		GENERATE_ENV=0
+	fi
 else
+	GENERATE_ENV=1
+fi
+# else, generate env file if needed
+if [ ${GENERATE_ENV} -eq 1 ]; then
+	DOCKER_ENV=""
+	function add_env {
+		export ${1}
+		DOCKER_ENV+="export ${1}"
+		DOCKER_ENV+=$'\n'
+	}
+
 	# Config paths
 	add_env DOCKER_CONFIG_FILE=${BB_TARGET_BUILD_DIR}/etc/docker/daemon.json
 	add_env DOCKER_CONFIG_DIR=${BB_TARGET_BUILD_DIR}/etc
@@ -32,8 +56,10 @@ else
 	else
 		add_env DOCKER_ROOTLESS=1
 	fi
+	echo "${DOCKER_ENV}" > ${DOCKER_ENV_FILE}
 fi
 
+# If Docker daemon is already running, stop here
 if [ -f ${DOCKER_PID_FILE} ]; then
 	pid=$(cat ${DOCKER_PID_FILE})
 	ps -p ${pid} > /dev/null 2>&1
@@ -41,9 +67,6 @@ if [ -f ${DOCKER_PID_FILE} ]; then
 		return 0
 	fi
 fi
-
-# If Docker daemon is already running, stop here
-echo "${DOCKER_ENV}" > ${DOCKER_ENV_FILE}
 
 if [ -d "${DOCKER_EXEC_ROOT}" ]; then
 	${SUDO} chmod -R u+rwX "${DOCKER_EXEC_ROOT}"
