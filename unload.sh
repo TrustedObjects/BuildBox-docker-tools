@@ -1,9 +1,27 @@
+tool_dir="$( cd "$( dirname "${BASH_SOURCE[0]:-$0}" )" && pwd )"
+source ${tool_dir}/_common.sh
+
+if ! lock_docker_env; then
+	# Docker daemon stop already handled by another instance: nothing to do
+	reset_docker_env
+	return
+fi
+
 # Load environment
-DOCKER_ENV_FILE=${TMPDIR}/docker.env
+if [ ! -L "${DOCKER_ENV_LINK}" ]; then
+	# No environment link: nothing to do
+	reset_docker_env
+	unlock_docker_env
+	return
+fi
+DOCKER_ENV_FILE=$(readlink ${DOCKER_ENV_LINK})
 if [ -f ${DOCKER_ENV_FILE} ]; then
 	source ${DOCKER_ENV_FILE}
+	rm ${DOCKER_ENV_FILE}
 else
 	# No environment file: nothing to do
+	reset_docker_env
+	unlock_docker_env
 	return
 fi
 if [ ${DOCKER_ROOTLESS} -eq 0 ]; then
@@ -23,6 +41,8 @@ if [ -f "${DOCKER_PID_FILE}" ]; then
 			inotifywait -e delete_self -t 25 ${DOCKER_PID_FILE} > /dev/null 2>&1
 			if [ $? -ne 0 ] && [ -f ${DOCKER_PID_FILE} ]; then
 				echo "Unable to terminate Docker daemon"
+				reset_docker_env
+				unlock_docker_env
 				return 1
 			fi
 		fi
@@ -69,10 +89,5 @@ fi
 if [ -d "${DOCKER_EXEC_ROOT}" ]; then
 	rm -rf "${DOCKER_EXEC_ROOT}"
 fi
-
-# Reset environment
-sed -i 's/export/unset/g' ${DOCKER_ENV_FILE}
-sed -i 's/=.*//' ${DOCKER_ENV_FILE}
-source ${DOCKER_ENV_FILE}
-rm ${DOCKER_ENV_FILE}
-
+reset_docker_env
+unlock_docker_env

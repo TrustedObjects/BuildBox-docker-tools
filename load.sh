@@ -1,5 +1,12 @@
+tool_dir="$( cd "$( dirname "${BASH_SOURCE[0]:-$0}" )" && pwd )"
+source ${tool_dir}/_common.sh
+
 # Environment definition
-DOCKER_ENV_FILE=${TMPDIR}/docker.env
+if [ -L "${DOCKER_ENV_LINK}" ]; then
+	DOCKER_ENV_FILE=$(readlink ${DOCKER_ENV_LINK})
+else
+	DOCKER_ENV_FILE=$(mktemp)
+fi
 # try to load environment from file
 if [ -f ${DOCKER_ENV_FILE} ]; then
 	source ${DOCKER_ENV_FILE}
@@ -24,13 +31,17 @@ if [ -f ${DOCKER_ENV_FILE} ]; then
 else
 	GENERATE_ENV=1
 fi
-# else, generate env file if needed
+# else, generate it
 if [ ${GENERATE_ENV} -eq 1 ]; then
 	DOCKER_ENV=""
+	DOCKER_ENV_RESET=""
 	function add_env {
 		export ${1}
 		DOCKER_ENV+="export ${1}"
 		DOCKER_ENV+=$'\n'
+		# also generate entries to later reset env
+		DOCKER_ENV_RESET+="unset ${1%=*}"
+		DOCKER_ENV_RESET+=$'\n'
 	}
 
 	# Config paths
@@ -45,7 +56,7 @@ if [ ${GENERATE_ENV} -eq 1 ]; then
 	add_env BUILDX_CONFIG=${BB_TARGET_BUILD_DIR}/etc/docker/buildx
 
 	# Runtime paths
-	add_env DOCKER_EXEC_ROOT=${TMPDIR}/docker
+	add_env DOCKER_EXEC_ROOT=$(mktemp -d)
 	add_env DOCKER_PID_FILE=${DOCKER_EXEC_ROOT}/docker.pid
 	add_env DOCKER_SOCK_FILE=${DOCKER_EXEC_ROOT}/docker.sock
 	add_env DOCKER_HOST=unix://${DOCKER_SOCK_FILE}
@@ -56,7 +67,22 @@ if [ ${GENERATE_ENV} -eq 1 ]; then
 	else
 		add_env DOCKER_ROOTLESS=1
 	fi
+fi
+
+# Check if another instance is already doing the job
+if ! lock_docker_env; then
+	return
+fi
+
+# Store env file
+if [ ${GENERATE_ENV} -eq 1 ]; then
+	mkdir -p ${BB_TARGET_BUILD_DIR}
 	echo "${DOCKER_ENV}" > ${DOCKER_ENV_FILE}
+	if [ -L ${DOCKER_ENV_LINK} ]; then
+		rm ${DOCKER_ENV_LINK}
+	fi
+	ln -s ${DOCKER_ENV_FILE} ${DOCKER_ENV_LINK}
+	echo "${DOCKER_ENV_RESET}" > ${DOCKER_ENV_RESET_FILE}
 fi
 
 # If Docker daemon is already running, stop here
@@ -64,6 +90,7 @@ if [ -f ${DOCKER_PID_FILE} ]; then
 	pid=$(cat ${DOCKER_PID_FILE})
 	ps -p ${pid} > /dev/null 2>&1
 	if [ $? -eq 0 ]; then
+		unlock_docker_env
 		return 0
 	fi
 fi
@@ -114,3 +141,6 @@ while [ ! -f "${DOCKER_PID_FILE}" ]; do
 		echo "Docker daemon is starting for target ${BB_TARGET}, please wait..."
 	fi
 done
+
+unlock_docker_env
+
