@@ -17,7 +17,6 @@ fi
 DOCKER_ENV_FILE=$(readlink ${DOCKER_ENV_LINK})
 if [ -f ${DOCKER_ENV_FILE} ]; then
 	source ${DOCKER_ENV_FILE}
-	rm ${DOCKER_ENV_FILE}
 else
 	# No environment file: nothing to do
 	reset_docker_env
