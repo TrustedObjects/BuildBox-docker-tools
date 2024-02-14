@@ -105,7 +105,17 @@ mkdir -p ${DOCKER_EXEC_ROOT}
 mkdir -p ${DOCKER_LOGS_DIR}
 mkdir -p $(dirname ${DOCKER_CONFIG_FILE})
 if [ ! -f ${DOCKER_CONFIG_FILE} ]; then
-	echo "{}" > ${DOCKER_CONFIG_FILE}
+	if [ -z "${BB_TARGET_VAR_DOCKER_CONFIG_FILE}" ]; then
+		echo "{}" > ${DOCKER_CONFIG_FILE}
+	else
+		provided_config_file=$(eval "echo ${BB_TARGET_VAR_DOCKER_CONFIG_FILE}")
+		if [ ! -f "${provided_config_file}" ]; then
+			echo "Docker config file not found at ${provided_config_file} ! aborting Docker daemon startup"
+			unlock_docker_env
+			return
+		fi
+		ln -s "${provided_config_file}" ${DOCKER_CONFIG_FILE}
+	fi
 fi
 
 # Start Docker daemon
