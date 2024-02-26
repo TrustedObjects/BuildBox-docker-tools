@@ -2,11 +2,6 @@ tool_dir="$( cd "$( dirname "${BASH_SOURCE[0]:-$0}" )" && pwd )"
 source ${tool_dir}/_common.sh
 
 # Environment definition
-if [ -L "${DOCKER_ENV_LINK}" ]; then
-	DOCKER_ENV_FILE=$(readlink ${DOCKER_ENV_LINK})
-else
-	DOCKER_ENV_FILE=$(mktemp)
-fi
 # try to load environment from file
 if [ -f ${DOCKER_ENV_FILE} ]; then
 	source ${DOCKER_ENV_FILE}
@@ -78,10 +73,6 @@ fi
 if [ ${GENERATE_ENV} -eq 1 ]; then
 	mkdir -p ${BB_TARGET_BUILD_DIR}
 	echo "${DOCKER_ENV}" > ${DOCKER_ENV_FILE}
-	if [ -L ${DOCKER_ENV_LINK} ]; then
-		rm ${DOCKER_ENV_LINK}
-	fi
-	ln -s ${DOCKER_ENV_FILE} ${DOCKER_ENV_LINK}
 	echo "${DOCKER_ENV_RESET}" > ${DOCKER_ENV_RESET_FILE}
 fi
 

@@ -8,13 +8,6 @@ if ! lock_docker_env; then
 fi
 
 # Load environment
-if [ ! -L "${DOCKER_ENV_LINK}" ]; then
-	# No environment link: nothing to do
-	reset_docker_env
-	unlock_docker_env
-	return
-fi
-DOCKER_ENV_FILE=$(readlink ${DOCKER_ENV_LINK})
 if [ -f ${DOCKER_ENV_FILE} ]; then
 	source ${DOCKER_ENV_FILE}
 else
