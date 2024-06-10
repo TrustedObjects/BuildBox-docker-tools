@@ -16,14 +16,14 @@ else
 	unlock_docker_env
 	return
 fi
-if [ ${DOCKER_ROOTLESS} -eq 0 ]; then
-	SUDO="sudo"
-fi
 
 # Stop Docker daemon
 if [ -f "${DOCKER_PID_FILE}" ]; then
 	pid=$(cat ${DOCKER_PID_FILE})
 	ps -p ${pid} > /dev/null 2>&1
+	if [ ${DOCKER_ROOTLESS} -eq 0 ]; then
+		SUDO="sudo"
+	fi
 	if [ $? -eq 0 ]; then
 		${SUDO} kill ${pid}
 		# Docker daemon deletes ${DOCKER_PID_FILE} when terminating
