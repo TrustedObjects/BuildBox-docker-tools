@@ -58,7 +58,6 @@ if [ ${GENERATE_ENV} -eq 1 ]; then
 
 	if [ -z "${BB_TARGET_VAR_DOCKER_ROOTLESS}" ] || [[ "${BB_TARGET_VAR_DOCKER_ROOTLESS}" != "1" ]]; then
 		add_env DOCKER_ROOTLESS=0
-		SUDO="sudo"
 	else
 		add_env DOCKER_ROOTLESS=1
 	fi
@@ -87,8 +86,8 @@ if [ -f ${DOCKER_PID_FILE} ]; then
 fi
 
 if [ -d "${DOCKER_EXEC_ROOT}" ]; then
-	${SUDO} chmod -R u+rwX "${DOCKER_EXEC_ROOT}"
-	${SUDO} rm -rf "${DOCKER_EXEC_ROOT}"
+	sudo chmod -R u+rwX "${DOCKER_EXEC_ROOT}"
+	sudo rm -rf "${DOCKER_EXEC_ROOT}"
 fi
 mkdir -p ${DOCKER_CONFIG_DIR}
 mkdir -p ${DOCKER_DATA_ROOT}
