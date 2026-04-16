@@ -1,6 +1,0 @@
-BuildBox Docker Tools manage target docker daemon.
-
-The following files are created:
-- $DOCKER_ENV_LINK: symlink to BuildBox Docker Tools created environment.
-- $DOCKER_ENV_RESET_FILE: symlink to environment reset file.
-- $DOCKER_ENV_LOCK: BuildBox Docker Tools lock to prevent concurrency issues.
