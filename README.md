@@ -48,7 +48,7 @@ Set these variables in your target file (`.bbx/target.<NAME>`) before the tool i
 On load, `load.sh`:
 
 1. Generates and exports all Docker environment variables (paths rooted at `$BB_TARGET_BUILD_DIR`) and writes them to `$BB_TARGET_BUILD_DIR/docker.env` so concurrent callers can reuse them without regenerating.
-2. Acquires an atomic lock via `mkdir $BB_TARGET_BUILD_DIR/docker.env.lock`. If another instance already holds the lock, this instance sources the existing environment and returns immediately.
+2. Takes the tool lock on `$BB_TARGET_BUILD_DIR/docker.env.lock` through the [BuildBox API](https://buildbox.trusted-objects.com/dev/api.html#locks) (`bb_lock_try_acquire`), without waiting. If another instance already holds it, this instance sources the existing environment and returns immediately. Since BuildBox 2.1.0 the lock lives on a file descriptor, so the kernel releases it when the holding process ends, even killed, and the daemon is started with that descriptor closed (`bb_lock_close_redirections`) so it does not hold the lock itself.
 3. Skips startup if a `dockerd` process matching the stored PID is already running.
 4. Creates all required directories (`etc/docker`, `var/lib/docker`, `var/log`, `$DOCKER_EXEC_ROOT`) and generates `daemon.json` from `BB_TARGET_VAR_DOCKER_CONFIG_FILE` (or `{}`), completed with the networks pool of the target when it defines none. The provided file is never modified, and the generated one is refreshed at each start.
 5. In root mode, creates the bridge dedicated to the target and warns if its range is already routed (see [Network ranges](#network-ranges)).

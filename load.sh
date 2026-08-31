@@ -219,7 +219,17 @@ else
 fi
 export XDG_RUNTIME_DIR=${DOCKER_EXEC_ROOT}
 export XDG_CONFIG_HOME=${DOCKER_CONFIG_DIR}
+# The daemon must not inherit the tool lock: it would hold it for its whole
+# life, and the unload, unable to take it, would never stop it. A BuildBox
+# version holding its locks without a file descriptor prints nothing here.
+lock_close_redirections=""
+if command -v bb_lock_close_redirections > /dev/null 2>&1; then
+	lock_close_redirections=$(bb_lock_close_redirections)
+fi
 (
+	if [ -n "${lock_close_redirections}" ]; then
+		eval "exec ${lock_close_redirections}"
+	fi
 	eval ${DOCKERD_CMD} \
 		--pidfile ${DOCKER_PID_FILE} \
 		--exec-root ${DOCKER_EXEC_ROOT} \
