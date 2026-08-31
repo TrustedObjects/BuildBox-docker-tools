@@ -34,6 +34,12 @@ if [ -f ${DOCKER_ENV_FILE} ]; then
 		[ -z "${DOCKER_PID_FILE}" ] ||
 		[ -z "${DOCKER_SOCK_FILE}" ] ||
 		[ -z "${DOCKER_HOST}" ] ||
+		[ -z "${DOCKER_NETWORK_SLOT}" ] ||
+		[ -z "${DOCKER_BRIDGE_NAME}" ] ||
+		[ -z "${DOCKER_BRIDGE_ADDRESS}" ] ||
+		[ -z "${DOCKER_BRIDGE_SUBNET}" ] ||
+		[ -z "${DOCKER_ADDRESS_POOL_BASE}" ] ||
+		[ -z "${DOCKER_ADDRESS_POOL_SIZE}" ] ||
 		[ -z "${DOCKER_ROOTLESS}" ]; then
 		GENERATE_ENV=1
 	else
@@ -51,7 +57,7 @@ if [ ${GENERATE_ENV} -eq 1 ]; then
 		DOCKER_ENV+="export ${1}"
 		DOCKER_ENV+=$'\n'
 		# also generate entries to later reset env
-		DOCKER_ENV_RESET+="unset ${1%=*}"
+		DOCKER_ENV_RESET+="unset ${1%%=*}"
 		DOCKER_ENV_RESET+=$'\n'
 	}
 
@@ -71,6 +77,37 @@ if [ ${GENERATE_ENV} -eq 1 ]; then
 	add_env DOCKER_PID_FILE=${DOCKER_EXEC_ROOT}/docker.pid
 	add_env DOCKER_SOCK_FILE=${DOCKER_EXEC_ROOT}/docker.sock
 	add_env DOCKER_HOST=unix://${DOCKER_SOCK_FILE}
+
+	# Network ranges, dedicated to this target.
+	# In root mode the daemon runs in the BuildBox container network namespace,
+	# which is the host one: its bridge and its subnets must collide neither
+	# with the host Docker daemon (which owns 'docker0' and the default Docker
+	# ranges) nor with another BuildBox instance. Each target gets a slot in
+	# 10.192.0.0/11, derived from its identity so that it is stable across
+	# daemon restarts, which the daemon requires for its bridge.
+	network_slot=""
+	if [ -n "${BB_TARGET_VAR_DOCKER_NETWORK_SLOT}" ]; then
+		case "${BB_TARGET_VAR_DOCKER_NETWORK_SLOT}" in
+			''|*[!0-9]*)
+				echo "Invalid BB_TARGET_VAR_DOCKER_NETWORK_SLOT, expected 0 to 31" ;;
+			*)
+				if [ ${BB_TARGET_VAR_DOCKER_NETWORK_SLOT} -le 31 ]; then
+					network_slot=${BB_TARGET_VAR_DOCKER_NETWORK_SLOT}
+				else
+					echo "Invalid BB_TARGET_VAR_DOCKER_NETWORK_SLOT, expected 0 to 31"
+				fi ;;
+		esac
+	fi
+	if [ -z "${network_slot}" ]; then
+		network_slot=$(printf '%s' "${BB_PROJECT_DIR}/${BB_TARGET}" | md5sum | cut -c1-8)
+		network_slot=$(( 0x${network_slot} % 32 ))
+	fi
+	add_env DOCKER_NETWORK_SLOT=${network_slot}
+	add_env DOCKER_BRIDGE_NAME=bbxdocker${network_slot}
+	add_env DOCKER_BRIDGE_ADDRESS=10.$(( 192 + network_slot )).0.1/24
+	add_env DOCKER_BRIDGE_SUBNET=10.$(( 192 + network_slot )).0.0/24
+	add_env DOCKER_ADDRESS_POOL_BASE=10.$(( 192 + network_slot )).128.0/17
+	add_env DOCKER_ADDRESS_POOL_SIZE=24
 
 	if [ -z "${BB_TARGET_VAR_DOCKER_ROOTLESS}" ] || [[ "${BB_TARGET_VAR_DOCKER_ROOTLESS}" != "1" ]]; then
 		add_env DOCKER_ROOTLESS=0
@@ -110,27 +147,75 @@ mkdir -p ${DOCKER_DATA_ROOT}
 mkdir -p ${DOCKER_EXEC_ROOT}
 mkdir -p ${DOCKER_LOGS_DIR}
 mkdir -p $(dirname ${DOCKER_CONFIG_FILE})
-if [ ! -f ${DOCKER_CONFIG_FILE} ]; then
-	if [ -z "${BB_TARGET_VAR_DOCKER_CONFIG_FILE}" ]; then
-		echo "{}" > ${DOCKER_CONFIG_FILE}
-	else
-		provided_config_file=$(eval "echo ${BB_TARGET_VAR_DOCKER_CONFIG_FILE}")
-		if [ ! -f "${provided_config_file}" ]; then
-			echo "Docker config file not found at ${provided_config_file} ! aborting Docker daemon startup"
-			unlock_docker_env
-			return
-		fi
-		ln -s "${provided_config_file}" ${DOCKER_CONFIG_FILE}
+# Daemon configuration file, generated at each start from the provided one (which
+# must not be modified) completed with the networks pool dedicated to the target:
+# the daemon only accepts that pool as a configuration key.
+provided_config_file=""
+if [ -n "${BB_TARGET_VAR_DOCKER_CONFIG_FILE}" ]; then
+	provided_config_file=$(eval "echo ${BB_TARGET_VAR_DOCKER_CONFIG_FILE}")
+	if [ ! -f "${provided_config_file}" ]; then
+		echo "Docker config file not found at ${provided_config_file} ! aborting Docker daemon startup"
+		unlock_docker_env
+		return
 	fi
 fi
+docker_config="{}"
+if [ -n "${provided_config_file}" ]; then
+	docker_config=$(cat "${provided_config_file}")
+fi
+if [ ${DOCKER_ROOTLESS} -eq 0 ]; then
+	if command -v jq > /dev/null 2>&1; then
+		# A pool defined by the provided file wins
+		merged_config=$(printf '%s' "${docker_config}" | jq \
+			--arg base "${DOCKER_ADDRESS_POOL_BASE}" \
+			--argjson size ${DOCKER_ADDRESS_POOL_SIZE} \
+			'if has("default-address-pools") then . else
+				. + {"default-address-pools": [{base: $base, size: $size}]} end' \
+			2>/dev/null) || true
+		if [ -n "${merged_config}" ]; then
+			docker_config="${merged_config}"
+		else
+			echo "Warning: unable to set Docker networks pool for target ${BB_TARGET}"
+		fi
+	else
+		echo "Warning: jq is missing, Docker networks of target ${BB_TARGET} keep the default ranges"
+	fi
+fi
+# Removed first: a previous version of this tool made it a symlink to the
+# provided file, which a redirection would overwrite
+rm -f ${DOCKER_CONFIG_FILE}
+printf '%s\n' "${docker_config}" > ${DOCKER_CONFIG_FILE}
 
 # Start Docker daemon
 if [ ${DOCKER_ROOTLESS} -eq 1 ]; then
 	DOCKERD_CMD="dockerd-rootless.sh"
 	DOCKER_PROXY="rootlesskit-docker-proxy"
+	# Rootless daemon runs in its own network namespace: nothing to isolate
+	DOCKERD_NETWORK_ARGS=""
 else
 	DOCKERD_CMD="sudo dockerd"
 	DOCKER_PROXY="docker-proxy"
+	# The networks pool is only a configuration key, see the config file below
+	DOCKERD_NETWORK_ARGS="--bridge ${DOCKER_BRIDGE_NAME}"
+	# The daemon uses the bridge as it is, so create it with its address.
+	# Failures are tolerated on purpose: an ERR would release the lock while
+	# this script keeps running
+	if ! ip link show ${DOCKER_BRIDGE_NAME} > /dev/null 2>&1; then
+		sudo ip link add name ${DOCKER_BRIDGE_NAME} type bridge || true
+	fi
+	if ! ip -oneline addr show ${DOCKER_BRIDGE_NAME} | grep -q "${DOCKER_BRIDGE_ADDRESS}"; then
+		sudo ip addr add ${DOCKER_BRIDGE_ADDRESS} dev ${DOCKER_BRIDGE_NAME} > /dev/null 2>&1 || true
+	fi
+	sudo ip link set ${DOCKER_BRIDGE_NAME} up || true
+	# A range routed by another interface makes the daemon containers
+	# unreachable, without any error reported by Docker
+	network_conflict=$(ip -oneline route show ${DOCKER_BRIDGE_SUBNET} \
+		| grep -v " dev ${DOCKER_BRIDGE_NAME} " | head -1)
+	if [ -n "${network_conflict}" ]; then
+		echo "Warning: ${DOCKER_BRIDGE_SUBNET} is already routed: ${network_conflict}"
+		echo "         Docker containers of target ${BB_TARGET} may be unreachable."
+		echo "         Set BB_TARGET_VAR_DOCKER_NETWORK_SLOT to a free slot (0 to 31)."
+	fi
 fi
 export XDG_RUNTIME_DIR=${DOCKER_EXEC_ROOT}
 export XDG_CONFIG_HOME=${DOCKER_CONFIG_DIR}
@@ -141,6 +226,7 @@ export XDG_CONFIG_HOME=${DOCKER_CONFIG_DIR}
 		--data-root ${DOCKER_DATA_ROOT} \
 		--config-file ${DOCKER_CONFIG_FILE} \
 		--userland-proxy-path $(which ${DOCKER_PROXY}) \
+		${DOCKERD_NETWORK_ARGS} \
 		--tlscacert ${DOCKER_TLS_CA_FILE} \
 		--tlscert ${DOCKER_TLS_CERT_FILE} \
 		--tlskey ${DOCKER_TLS_KEY_FILE} \
@@ -155,6 +241,13 @@ while [ ! -f "${DOCKER_PID_FILE}" ]; do
 	((retries=retries+1))
 	if [ $retries -eq 5 ]; then
 		echo "Docker daemon is starting for target ${BB_TARGET}, please wait..."
+	fi
+	if [ ${retries} -ge 60 ]; then
+		echo "Docker daemon did not start for target ${BB_TARGET}, last log lines:"
+		tail -5 ${DOCKER_LOGS_FILE} 2>/dev/null | sed 's/^/  /'
+		echo "  full log: ${DOCKER_LOGS_FILE}"
+		unlock_docker_env
+		return
 	fi
 done
 

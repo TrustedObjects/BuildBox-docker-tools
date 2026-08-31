@@ -33,6 +33,28 @@ else
 	return
 fi
 
+# List the bridges this daemon declares, and drop the networks it no longer
+# uses. In root mode its bridges live in the BuildBox container network
+# namespace, which is the host one: whatever is left behind survives the
+# container, then collides with the host Docker daemon and with the next
+# BuildBox instances (a duplicate route makes containers unreachable).
+docker_bridges=""
+if [ ${DOCKER_ROOTLESS} -eq 0 ] && [ -S "${DOCKER_SOCK_FILE}" ]; then
+	while read -r network_id; do
+		[ -z "${network_id}" ] && continue
+		bridge_name=$(docker -H "${DOCKER_HOST}" network inspect \
+			-f '{{index .Options "com.docker.network.bridge.name"}}' \
+			"${network_id}" 2>/dev/null) || true
+		if [ -z "${bridge_name}" ]; then
+			# Default name given by Docker to a network bridge
+			bridge_name="br-${network_id:0:12}"
+		fi
+		docker_bridges+="${bridge_name} "
+	done < <(docker -H "${DOCKER_HOST}" network ls \
+		--filter driver=bridge --format '{{.ID}}' 2>/dev/null)
+	docker -H "${DOCKER_HOST}" network prune --force > /dev/null 2>&1 || true
+fi
+
 # Stop Docker daemon
 if [ -f "${DOCKER_PID_FILE}" ]; then
 	pid=$(cat ${DOCKER_PID_FILE})
@@ -66,6 +88,20 @@ if [ -f "${DOCKER_PID_FILE}" ]; then
 	else
 		${SUDO} rm ${DOCKER_PID_FILE}
 	fi
+fi
+
+# Remove the bridges the daemon left behind. Only an unused one is removed: a
+# bridge still having interfaces attached belongs to containers which outlived
+# the daemon, and removing it would cut them off.
+if [ ${DOCKER_ROOTLESS} -eq 0 ]; then
+	for bridge_name in ${docker_bridges} ${DOCKER_BRIDGE_NAME}; do
+		[ -z "${bridge_name}" ] && continue
+		ip link show "${bridge_name}" > /dev/null 2>&1 || continue
+		if [ -n "$(ip -oneline link show master "${bridge_name}" 2>/dev/null || true)" ]; then
+			continue
+		fi
+		sudo ip link delete "${bridge_name}" > /dev/null 2>&1 || true
+	done
 fi
 
 # Umount Docker data root if needed
