@@ -219,18 +219,14 @@ else
 fi
 export XDG_RUNTIME_DIR=${DOCKER_EXEC_ROOT}
 export XDG_CONFIG_HOME=${DOCKER_CONFIG_DIR}
-# The daemon must not inherit the tool lock: it would hold it for its whole
-# life, and the unload, unable to take it, would never stop it. A BuildBox
-# version holding its locks without a file descriptor prints nothing here.
-lock_close_redirections=""
-if command -v bb_lock_close_redirections > /dev/null 2>&1; then
-	lock_close_redirections=$(bb_lock_close_redirections)
-fi
+# The daemon outlives the command which starts it, so it must inherit nothing
+# from it. A descriptor left open, the pipe of a package build for instance,
+# would keep that command waiting for the whole life of the daemon. Hence the
+# exec, which leaves no shell behind and drops the descriptors a shell keeps for
+# itself, plus an explicit stdin.
 (
-	if [ -n "${lock_close_redirections}" ]; then
-		eval "exec ${lock_close_redirections}"
-	fi
-	eval ${DOCKERD_CMD} \
+	exec 0< /dev/null
+	eval exec ${DOCKERD_CMD} \
 		--pidfile ${DOCKER_PID_FILE} \
 		--exec-root ${DOCKER_EXEC_ROOT} \
 		--data-root ${DOCKER_DATA_ROOT} \
@@ -240,8 +236,9 @@ fi
 		--tlscacert ${DOCKER_TLS_CA_FILE} \
 		--tlscert ${DOCKER_TLS_CERT_FILE} \
 		--tlskey ${DOCKER_TLS_KEY_FILE} \
-		--host ${DOCKER_HOST} \
-&) > ${DOCKER_LOGS_FILE} 2>&1
+		--host ${DOCKER_HOST}
+) > ${DOCKER_LOGS_FILE} 2>&1 &
+
 unset XDG_RUNTIME_DIR
 unset XDG_CONFIG_HOME
 
