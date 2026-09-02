@@ -138,6 +138,14 @@ if [ -f ${DOCKER_PID_FILE} ]; then
 	fi
 fi
 
+# Only reached when the daemon has to be started: an instance which finds it
+# already running, or another one holding the lock, returned above. The image
+# is therefore checked once per daemon start, never for an already loaded tool.
+if ! docker_tools_check_image; then
+	unlock_docker_env
+	return
+fi
+
 if [ -d "${DOCKER_EXEC_ROOT}" ]; then
 	sudo chmod -R u+rwX "${DOCKER_EXEC_ROOT}"
 	sudo rm -rf "${DOCKER_EXEC_ROOT}"

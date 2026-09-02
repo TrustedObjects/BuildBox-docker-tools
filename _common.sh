@@ -36,6 +36,41 @@ if ! command -v bb_lock_try_acquire > /dev/null 2>&1; then
 	fi
 fi
 
+## Check the container image can run a Docker daemon.
+## A derived image carries any name, so the image reference proves nothing:
+## what is tested is the set of commands this tool actually runs, which differs
+## between root and rootless mode.
+## Prints what is missing and how to fix it when the image is not usable.
+## @return 0 when the image is usable, else 1
+function docker_tools_check_image {
+	local required
+	if [ "${BB_TARGET_VAR_DOCKER_ROOTLESS}" = "1" ]; then
+		required=(dockerd-rootless.sh rootlesskit-docker-proxy inotifywait setfacl)
+	else
+		required=(dockerd docker-proxy ip inotifywait setfacl)
+	fi
+
+	local missing=""
+	local cmd
+	# Quoted expansion: an unquoted one does not split into words in ZSH
+	for cmd in "${required[@]}"; do
+		if ! command -v "${cmd}" > /dev/null 2>&1; then
+			missing="${missing} ${cmd}"
+		fi
+	done
+	if [ -z "${missing}" ]; then
+		return 0
+	fi
+
+	echo "Error: the container image of this project can not run a Docker daemon."
+	echo "       Missing:${missing}"
+	echo "       Declare the 'buildbox-docker' image, or an image derived from it,"
+	echo "       in the project '.bbx/image' file:"
+	echo "         trustedobjects/buildbox-docker:<VERSION>"
+	echo "       Docker daemon of target ${BB_TARGET} not started."
+	return 1
+}
+
 function reset_docker_env {
 	if [ -f ${DOCKER_ENV_RESET_FILE} ]; then
 		source ${DOCKER_ENV_RESET_FILE}

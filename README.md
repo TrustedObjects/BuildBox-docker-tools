@@ -8,6 +8,39 @@ When listed as a tool in a BuildBox target, this tool initializes a Docker daemo
 
 ## Installation
 
+### Container image
+
+This tool starts a real Docker daemon inside the BuildBox container, so the
+project image must ship a Docker installation. The BuildBox base image does
+not: use the `buildbox-docker` variant, published on [Docker
+Hub](https://hub.docker.com/repository/docker/trustedobjects/buildbox-docker),
+or any image derived from it.
+
+Declare it in the project `.bbx/image` file:
+
+```
+trustedobjects/buildbox-docker:2.0.0
+```
+
+or at project creation:
+
+```
+bbx init --image trustedobjects/buildbox-docker:2.0.0 my_project
+```
+
+A project needing more than Docker derives its own image from the variant:
+
+```dockerfile
+FROM trustedobjects/buildbox-docker:2.0.0
+RUN apt-get install --yes my-extra-package
+```
+
+See [Docker variant
+image](https://buildbox.trusted-objects.com/dev/container.html#docker-variant-image)
+for building and tagging it from the BuildBox sources.
+
+### Tool package
+
 In your `.bbx/packages`, add a `buildbox_docker_tools` package file with this content:
 
 ```bash
