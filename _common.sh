@@ -43,9 +43,10 @@ function reset_docker_env {
 }
 
 ## Try to take the tool lock, without waiting.
-## The BuildBox API holds it on a file descriptor, so the kernel releases it as
-## soon as the holding process ends, even killed: no stale lock can be left
-## behind to make every later load skip the Docker daemon management.
+## The BuildBox API makes it a symbolic link whose target is the PID of the
+## owner: a lock whose owner is gone is stale and taken over by the next
+## instance, even if that owner was killed, so no stale lock can be left behind
+## to make every later load skip the Docker daemon management.
 ## Return 0 when the lock is taken, else 1
 function lock_docker_env {
 	bb_lock_try_acquire "${DOCKER_ENV_LOCK}"
