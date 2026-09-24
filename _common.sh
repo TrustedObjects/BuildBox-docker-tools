@@ -71,6 +71,13 @@ function docker_tools_check_image {
 	return 1
 }
 
+## Unmount what is left mounted under the daemon runtime directory.
+function docker_tools_umount_exec_root {
+	[ -d "${DOCKER_EXEC_ROOT}" ] || return 0
+	findmnt -rn -o TARGET | grep "^${DOCKER_EXEC_ROOT}/" | sort -r \
+		| xargs -r -n1 sudo umount -l > /dev/null 2>&1 || true
+}
+
 function reset_docker_env {
 	if [ -f ${DOCKER_ENV_RESET_FILE} ]; then
 		source ${DOCKER_ENV_RESET_FILE}

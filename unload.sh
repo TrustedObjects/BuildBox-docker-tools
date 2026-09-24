@@ -115,6 +115,7 @@ if [ ${DOCKER_ROOTLESS} -eq 0 ]; then
 fi
 
 # Give permissions for buildbox user to manage all Docker created files
+docker_tools_umount_exec_root
 if [ -d "${DOCKER_EXEC_ROOT}" ]; then
 	sudo setfacl -R -m u:buildbox:rwX ${DOCKER_EXEC_ROOT}
 fi

@@ -147,6 +147,7 @@ if ! docker_tools_check_image; then
 fi
 
 if [ -d "${DOCKER_EXEC_ROOT}" ]; then
+	docker_tools_umount_exec_root
 	sudo chmod -R u+rwX "${DOCKER_EXEC_ROOT}"
 	sudo rm -rf "${DOCKER_EXEC_ROOT}"
 fi
