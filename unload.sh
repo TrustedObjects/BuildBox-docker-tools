@@ -58,11 +58,12 @@ fi
 # Stop Docker daemon
 if [ -f "${DOCKER_PID_FILE}" ]; then
 	pid=$(cat ${DOCKER_PID_FILE})
-	ps -p ${pid} > /dev/null 2>&1
+	daemon_running=0
+	ps -p ${pid} > /dev/null 2>&1 && daemon_running=1
 	if [ ${DOCKER_ROOTLESS} -eq 0 ]; then
 		SUDO="sudo"
 	fi
-	if [ $? -eq 0 ]; then
+	if [ ${daemon_running} -eq 1 ]; then
 		${SUDO} kill ${pid}
 		# Docker daemon deletes ${DOCKER_PID_FILE} when terminating
 		inotifywait -q -q -e delete_self -t 5 ${DOCKER_PID_FILE}
